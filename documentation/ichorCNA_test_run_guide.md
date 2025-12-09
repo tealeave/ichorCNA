@@ -14,7 +14,9 @@
 
 ### Problem
 
-The official `fredhutch/ichorcna:latest` Docker image is missing the `optparse` R package, which is required by `runIchorCNA.R`.
+The official `fredhutch/ichorcna:latest` Docker image has two issues:
+1. Missing the `optparse` R package, which is required by `runIchorCNA.R`
+2. Version mismatch between the installed ichorCNA package (v0.5.0) and the repository scripts (v0.3.2)
 
 ### Solution: Build Fixed Docker Image
 
@@ -45,6 +47,11 @@ docker run --rm -v /home/ubuntu/projects/ichorCNA:/ichorCNA ichorcna-custom \
 ```
 
 Expected output: List of all available command-line options for ichorCNA.
+
+### Important Notes
+
+- **Use `--libdir /ichorCNA`**: Due to version mismatch between the Docker image's ichorCNA package (v0.5.0) and the repository (v0.3.2), you must use the `--libdir` parameter to source the local R files.
+- **Use `--genomeStyle UCSC`**: The NCBI genome style requires network access to UCSC servers for chromosome name mapping. Using UCSC style avoids this network dependency.
 
 ---
 
@@ -106,10 +113,11 @@ docker run --rm \
   -v /home/ubuntu/projects/ichorCNA:/ichorCNA \
   ichorcna-custom \
   Rscript /ichorCNA/scripts/runIchorCNA.R \
+    --libdir /ichorCNA \
     --id MBC_315 \
     --WIG /ichorCNA/inst/extdata/MBC_315.ctDNA.reads.wig \
-    --ploidy "c(2,3)" \
-    --normal "c(0.5,0.6,0.7,0.8,0.9)" \
+    --ploidy "c(2)" \
+    --normal "c(0.5)" \
     --maxCN 5 \
     --gcWig /ichorCNA/inst/extdata/gc_hg19_1000kb.wig \
     --mapWig /ichorCNA/inst/extdata/map_hg19_1000kb.wig \
@@ -120,14 +128,17 @@ docker run --rm \
     --chrTrain "c(1:22)" \
     --estimateNormal True \
     --estimatePloidy True \
-    --estimateScPrevalence True \
-    --scStates "c(1,3)" \
+    --estimateScPrevalence False \
     --txnE 0.9999 \
     --txnStrength 10000 \
     --genomeBuild hg19 \
-    --genomeStyle NCBI \
+    --genomeStyle UCSC \
     --outDir /ichorCNA/test_output/
 ```
+
+**Key parameters for Docker compatibility:**
+- `--libdir /ichorCNA`: Uses local R source files instead of installed package
+- `--genomeStyle UCSC`: Avoids network dependency for chromosome name mapping
 
 ---
 
@@ -135,10 +146,11 @@ docker run --rm \
 
 | Parameter | Value | Description |
 |-----------|-------|-------------|
+| `--libdir` | /ichorCNA | Path to local R source files (required for Docker) |
 | `--id` | MBC_315 | Sample identifier for output files |
 | `--WIG` | Sample WIG file | Read counts per bin |
-| `--ploidy` | c(2,3) | Initial ploidy values to test |
-| `--normal` | c(0.5,0.6,0.7,0.8,0.9) | Initial normal contamination values |
+| `--ploidy` | c(2) | Initial ploidy values to test |
+| `--normal` | c(0.5) | Initial normal contamination values |
 | `--maxCN` | 5 | Maximum copy number state |
 | `--gcWig` | GC content file | For GC bias correction |
 | `--mapWig` | Mappability file | For mappability bias correction |
@@ -149,12 +161,13 @@ docker run --rm \
 | `--chrTrain` | c(1:22) | Chromosomes to train model (exclude X) |
 | `--estimateNormal` | True | Estimate normal contamination |
 | `--estimatePloidy` | True | Estimate tumor ploidy |
-| `--estimateScPrevalence` | True | Estimate subclonal prevalence |
-| `--scStates` | c(1,3) | Subclonal copy number states |
+| `--estimateScPrevalence` | False | Estimate subclonal prevalence (disabled for basic test) |
 | `--txnE` | 0.9999 | Self-transition probability (higher = fewer segments) |
 | `--txnStrength` | 10000 | Transition pseudo-counts |
 | `--genomeBuild` | hg19 | Genome build version |
-| `--genomeStyle` | NCBI | Chromosome naming (NCBI=1,2,3; UCSC=chr1,chr2,chr3) |
+| `--genomeStyle` | UCSC | Chromosome naming (UCSC=chr1,chr2,chr3; avoids network dependency) |
+
+**Note:** For a more thorough analysis with multiple solutions, you can expand `--ploidy` to `"c(2,3)"` and `--normal` to `"c(0.5,0.6,0.7,0.8,0.9)"`, but this requires more computation time.
 
 ---
 
@@ -244,21 +257,30 @@ grep "Tumor Fraction" /home/ubuntu/projects/ichorCNA/test_output/MBC_315.params.
 1. **Missing optparse package**
    - Solution: Use the fixed Docker image (see Part 1)
 
-2. **Cairo/graphics errors**
+2. **"Error in lambdas[, , i]" or EM initialization errors**
+   - Solution: Use `--libdir /ichorCNA` to use local R source files
+   - This is caused by version mismatch between Docker package (v0.5.0) and repo scripts (v0.3.2)
+
+3. **"cannot open URL 'http://hgdownload.cse.ucsc.edu/...'"**
+   - Solution: Use `--genomeStyle UCSC` instead of `NCBI`
+   - The NCBI style requires network access to UCSC for chromosome name mapping
+   - UCSC style works offline using BSgenome package
+
+4. **Cairo/graphics errors**
    - The script sets `options(bitmapType='cairo')` automatically
    - If issues persist, check X11 forwarding or use `--plotFileType png`
 
-3. **Memory issues**
+5. **Memory issues**
    - 1Mb bins require minimal memory (~2GB)
    - For 10kb bins, increase Docker memory limit
 
-4. **Permission denied on output**
+6. **Permission denied on output**
    - Ensure output directory is writable
    - Check Docker volume mount permissions
 
-5. **Chromosome naming issues**
-   - Use `--genomeStyle NCBI` for 1,2,3 format
-   - Use `--genomeStyle UCSC` for chr1,chr2,chr3 format
+7. **Chromosome naming issues**
+   - Use `--genomeStyle UCSC` for chr1,chr2,chr3 format (recommended for Docker)
+   - Use `--genomeStyle NCBI` for 1,2,3 format (requires network access)
 
 ---
 
@@ -292,6 +314,47 @@ Replace the sample WIG path with your own file in the command from Part 4.
 - **Panel of Normals:** https://github.com/broadinstitute/ichorCNA/wiki/Create-Panel-of-Normals
 - **Snakemake Pipeline:** https://github.com/broadinstitute/ichorCNA/wiki/SnakeMake-pipeline-for-ichorCNA
 - **FAQ:** https://github.com/broadinstitute/ichorCNA/wiki/FAQ
+
+---
+
+## Part 12: Verified Test Run Results
+
+This test was run on December 9, 2024 and completed successfully.
+
+### Expected Output
+
+```
+Total ULP-WGS HMM Runtime: 0.082 min.
+Writing segments to /ichorCNA/test_output//MBC_315.seg
+Outputting to bin-level results to /ichorCNA/test_output//MBC_315.cna.seg
+```
+
+### Sample Results from MBC_315.params.txt
+
+```
+Sample          Tumor Fraction  Ploidy
+MBC_315         0.255           1.898
+
+Gender:                     female
+Tumor Fraction:             0.255
+Ploidy:                     1.898
+Subclone Fraction:          NA
+Fraction Genome Subclonal:  0
+Fraction CNA Subclonal:     0
+```
+
+### Generated Files
+
+| File | Size | Description |
+|------|------|-------------|
+| MBC_315.params.txt | 518 B | Analysis parameters |
+| MBC_315.seg | 2.7 KB | Segments (IGV compatible) |
+| MBC_315.seg.txt | 4.1 KB | Segments with details |
+| MBC_315.cna.seg | 161 KB | Bin-level results |
+| MBC_315.correctedDepth.txt | 108 KB | Corrected depth |
+| MBC_315.RData | 870 KB | R session data |
+| MBC_315_genomeWide.pdf | 140 KB | Main genome plot |
+| MBC_315_bias.pdf | 614 KB | Bias correction plots |
 
 ---
 

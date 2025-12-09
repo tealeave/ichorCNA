@@ -1,0 +1,22 @@
+Sample	Tumor Fraction	Ploidy
+MBC_315	0.255	1.898
+
+
+MBC_315
+Gender:	female
+Tumor Fraction:	0.255
+Ploidy:	1.898
+Subclone Fraction:	NA
+Fraction Genome Subclonal:	0
+Fraction CNA Subclonal:	0
+Coverage:	NA
+ChrY coverage fraction:	0.000269
+ChrX median log ratio:	0.03243
+Student's t mean: -0.12, 0.013, 0.13, 0.24, 0.34
+Student's t precision: 580, 840, 780, 120, 670
+Gamma Rate Init:	0.003
+GC-Map correction MAD:	0.06713
+
+
+init	n_est	phi_est	BIC	Frac_genome_subclonal	Frac_CNA_subclonal	loglik
+n0.5-p2	0.75	1.898	NA	0	0	3411
