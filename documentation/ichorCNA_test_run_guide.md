@@ -140,6 +140,41 @@ docker run --rm \
 - `--libdir /ichorCNA`: Uses local R source files instead of installed package
 - `--genomeStyle UCSC`: Avoids network dependency for chromosome name mapping
 
+### Step 3: Run with Logging (Recommended)
+
+To save a log file for reproducibility and troubleshooting:
+
+```bash
+docker run --rm \
+  -v /home/ubuntu/projects/ichorCNA:/ichorCNA \
+  ichorcna-custom \
+  Rscript /ichorCNA/scripts/runIchorCNA.R \
+    --libdir /ichorCNA \
+    --id MBC_315 \
+    --WIG /ichorCNA/inst/extdata/MBC_315.ctDNA.reads.wig \
+    --ploidy "c(2)" \
+    --normal "c(0.5)" \
+    --maxCN 5 \
+    --gcWig /ichorCNA/inst/extdata/gc_hg19_1000kb.wig \
+    --mapWig /ichorCNA/inst/extdata/map_hg19_1000kb.wig \
+    --centromere /ichorCNA/inst/extdata/GRCh37.p13_centromere_UCSC-gapTable.txt \
+    --normalPanel /ichorCNA/inst/extdata/HD_ULP_PoN_1Mb_median_normAutosome_mapScoreFiltered_median.rds \
+    --includeHOMD False \
+    --chrs "c(1:22, \"X\")" \
+    --chrTrain "c(1:22)" \
+    --estimateNormal True \
+    --estimatePloidy True \
+    --estimateScPrevalence False \
+    --txnE 0.9999 \
+    --txnStrength 10000 \
+    --genomeBuild hg19 \
+    --genomeStyle UCSC \
+    --outDir /ichorCNA/test_output/ \
+    2>&1 | tee /home/ubuntu/projects/ichorCNA/test_output/ichorCNA_run.log
+```
+
+This saves both stdout and stderr to `ichorCNA_run.log` while also displaying output to the terminal.
+
 ---
 
 ## Part 5: Parameter Explanation
@@ -177,6 +212,7 @@ After successful run, you should find in `test_output/`:
 
 | File | Description |
 |------|-------------|
+| `ichorCNA_run.log` | Run log file (if using tee command) |
 | `MBC_315.seg` | Segments (IGV compatible) |
 | `MBC_315.seg.txt` | Segments with subclonal status |
 | `MBC_315.cna.seg` | Bin-level copy number estimates |
@@ -218,7 +254,34 @@ ls -la /home/ubuntu/projects/ichorCNA/test_output/MBC_315/MBC_315_genomeWide.pdf
 
 # View tumor fraction estimate
 grep "Tumor Fraction" /home/ubuntu/projects/ichorCNA/test_output/MBC_315.params.txt
+
+# Check log file for successful completion
+grep "Total ULP-WGS HMM Runtime" /home/ubuntu/projects/ichorCNA/test_output/ichorCNA_run.log
+
+# Check for any errors in log
+grep -i "error" /home/ubuntu/projects/ichorCNA/test_output/ichorCNA_run.log
 ```
+
+### Log File Success Indicators
+
+A successful run log should contain these key lines:
+
+```
+runEM: Initialization
+runEM iter1: Expectation
+...
+runEM: Using optimal parameters from iterN
+runEM: Total elapsed time: X.XXXmin.
+runViterbi: Segmenting and classifying
+Total ULP-WGS HMM Runtime: X.XXX min.
+Writing segments to /ichorCNA/test_output//MBC_315.seg
+Outputting to bin-level results to /ichorCNA/test_output//MBC_315.cna.seg
+```
+
+If the run fails, check for:
+- `Error in ...` messages
+- `Execution halted` at the end
+- Missing output files
 
 ---
 
